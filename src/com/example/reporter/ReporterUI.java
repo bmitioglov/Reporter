@@ -3,9 +3,14 @@ package com.example.reporter;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 import com.vaadin.ui.Alignment;
 import com.vaadin.annotations.Theme;
+import com.vaadin.data.Property;
+import com.vaadin.data.Property.ValueChangeEvent;
 import com.vaadin.data.util.FilesystemContainer;
 import com.vaadin.data.util.TextFileProperty;
 import com.vaadin.server.VaadinRequest;
@@ -19,6 +24,7 @@ import com.vaadin.ui.Window;
 
 import com.vaadin.server.ExternalResource;
 import com.vaadin.server.FileResource;
+import com.vaadin.server.Resource;
 import com.vaadin.server.StreamResource;
 import com.vaadin.server.StreamResource.StreamSource;
 import com.vaadin.server.ThemeResource;
@@ -51,6 +57,8 @@ public class ReporterUI extends UI {
 	private Panel panel = new Panel();
 	private Table table;
 	private Panel docView = new Panel();
+	private final BrowserFrame frame = new BrowserFrame();
+	private String stringDate;
 	
 	final VerticalLayout vlay = new VerticalLayout();
 	final HorizontalLayout hlay = new HorizontalLayout();
@@ -76,7 +84,7 @@ public class ReporterUI extends UI {
 		 
 		//vlay.addComponent(docView); 
 		
-		//настраиваем иконки
+		//ресурсы
 		
 		FileResource settingRes = new FileResource(new File(basepath +
 				"/WEB-INF/icons/settings.png"));
@@ -88,6 +96,7 @@ public class ReporterUI extends UI {
 				"/WEB-INF/icons/tick_16.png"));
 		final FileResource cacheNoRes = new FileResource(new File(basepath +
 				"/WEB-INF/icons/block_16.png"));
+		
 		final FileResource pdfFile = new FileResource(new File(basepath +
 				"/WEB-INF/docs/book.pdf"));
 		
@@ -141,10 +150,22 @@ public class ReporterUI extends UI {
 		listWindow.setWidth(20, Unit.PERCENTAGE);
 		 
 		FilesystemContainer docs = new FilesystemContainer(new File(basepath+"/WEB-INF/docs"));
-		table = new Table("Список отчётов",docs);
-		table.setSelectable(true);
 		
-		contentList.addComponent(table);
+		//настройка таблицы 
+		table = new Table(null,docs);
+		
+		table.setSelectable(true);
+		table.setVisibleColumns(new Object[]{"Name", 
+        "Last Modified"});
+		table.setColumnHeader("Name", "Имя отчёта");
+		table.setColumnHeader("Last Modified", "Дата изменения");
+		
+		listWindow.setHeight(94.5f, Unit.PERCENTAGE); 
+		listWindow.setWidth(21, Unit.PERCENTAGE);
+		
+		//table.setWidth(94.5f,Unit.PERCENTAGE);
+		table.setHeight(500,Unit.PIXELS);  
+		contentList.addComponent(table);  
 		
 		
 		//Tabsheet для протокола работы
@@ -169,21 +190,77 @@ public class ReporterUI extends UI {
 		this.setContent(split);
 		
 		//Вывод PDF
-		
-		final BrowserFrame frame = new BrowserFrame();
+
 		frame.setSizeFull();
-		frame.setSource(pdfFile);
+		//frame.setSource(pdfFile);
 		
 		//Слушатели
+		
+		//таблица
+		table.addValueChangeListener(new Property.ValueChangeListener() {
+			@Override
+			public void valueChange(ValueChangeEvent event) {
+				if (event.getProperty().getValue()!=null)
+				{
+					File file = (File) event.getProperty().getValue();
+					
+					FileResource res = new FileResource(file);
+					Date lastModified = new Date(file.lastModified());
+					
+					stringDate = new SimpleDateFormat("dd MMM yyyy").format(lastModified);
+
+					
+					stateLabel.setValue("Отчёт "+stringDate); 
+					frame.setSource(res);
+					//vlay.addComponent(frame);
+					vlay.removeAllComponents();
+					vlay.addComponent(frame);
+					vlay.setHeight(99.836f, Unit.PERCENTAGE);
+				}
+			}
+		});
+		table.setImmediate(true);
 		
 		//Кнопка загрузки отчёта
 		buttonRefresh.addClickListener(new Button.ClickListener() {
 			
 			@Override
 			public void buttonClick(ClickEvent event) { 
-				vlay.addComponent(frame);
-				vlay.setHeight(99.836f, Unit.PERCENTAGE);  
-				stateLabel.setValue("Отчёт загружен");  
+				
+				boolean flag = false;
+				if (datefield.getValue()!=null){
+					Date date = datefield.getValue();
+					File currentFile;
+					stringDate = new SimpleDateFormat("dd MMM yyyy").format(date);
+				
+					String list[] = new File(basepath+"/WEB-INF/docs").list();
+		            for(int i = 0; i < list.length; i++){
+		            	currentFile = new File(basepath +
+		            			"/WEB-INF/docs/"+list[i]);
+		            	Date lastModified = new Date(currentFile.lastModified());
+		            	String stringDate2 = new SimpleDateFormat("dd MMM yyyy").format(lastModified);
+		            	
+		            	if (stringDate.equals(stringDate2)){
+		            		stateLabel.setValue("Отчёт " + stringDate);
+		            		FileResource res = new FileResource(currentFile);
+		            		frame.setSource(res);
+							vlay.removeAllComponents();
+							vlay.addComponent(frame);
+							vlay.setHeight(99.836f, Unit.PERCENTAGE);
+							flag = true;
+		            	}
+		            }
+		            if (flag == false){
+		            	vlay.removeAllComponents(); 
+		            	stateLabel.setValue("Отчёт по этой дате не найден");
+		            	Notification.show("Отчёт по этой дате не найден"); 
+		            }
+				} 
+				else
+				{
+					stateLabel.setValue("Выберите дату!");
+					Notification.show("Выберите дату!");
+				}
 			}
 		});
 		
