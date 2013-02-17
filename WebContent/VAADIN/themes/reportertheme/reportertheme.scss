@@ -1,0 +1,48 @@
+/* Import the reindeer theme.*/
+/* This only allows us to use the mixins defined in it and does not add any styles by itself. */
+@import "../reindeer/reindeer.scss";
+
+/* This contains all of your theme.*/
+/* If somebody wants to extend the theme she will include this mixin. */
+@mixin reportertheme {
+  /* Include all the styles from the reindeer theme */
+  @include reindeer;
+	.v-label-redlabel {
+		color: Red;
+	}
+	
+	.backlay{
+		background: #1E2123;
+	}
+		
+	.blackbutton .v-button-wrap{
+		background: #1E2123;
+	}
+	
+	.blackback{
+		background: #1E2123;
+	}
+	
+	
+	
+	.splitpanel .v-splitpanel-second-container {
+		background: #B0B5B5;
+	}
+	
+	.splitpanel .v-splitpanel-first-container {
+		background: white; 
+	}
+	
+	.splitpanel .v-splitpanel-vsplitter-locked, .v-splitpanel-vsplitter{
+		width: 0px;
+    	border: 0px;
+		//background: transparent;
+	}
+	
+	/*.v-splitpanel-vsplitter-invisible {
+    	width: 0px; 
+    	background: transparent;
+    }*/
+	
+  /* Insert your theme rules here */ 
+}
