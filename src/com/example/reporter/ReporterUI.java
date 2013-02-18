@@ -1,20 +1,20 @@
 package com.example.reporter;
 
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.InputStream;
-import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
-import com.vaadin.ui.Alignment;
 import com.vaadin.annotations.Theme;
+
+import com.vaadin.client.BrowserInfo;
+import com.vaadin.data.Item;
 import com.vaadin.data.Property;
 import com.vaadin.data.Property.ValueChangeEvent;
 import com.vaadin.data.util.FilesystemContainer;
-import com.vaadin.data.util.TextFileProperty;
+import com.vaadin.data.util.IndexedContainer;
 import com.vaadin.server.VaadinRequest;
 import com.vaadin.ui.Button;
+import com.vaadin.ui.AbstractSelect.ItemCaptionMode;
 import com.vaadin.ui.Button.ClickEvent;
 import com.vaadin.ui.Label;
 import com.vaadin.ui.UI; 
@@ -22,28 +22,24 @@ import com.vaadin.ui.VerticalLayout;
 import com.vaadin.ui.Window;
 
 
-import com.vaadin.server.ExternalResource;
 import com.vaadin.server.FileResource;
-import com.vaadin.server.Resource;
-import com.vaadin.server.StreamResource;
-import com.vaadin.server.StreamResource.StreamSource;
-import com.vaadin.server.ThemeResource;
-import com.vaadin.server.VaadinRequest;
+import com.vaadin.server.Page;
+import com.vaadin.server.Page.BrowserWindowResizeEvent;
+import com.vaadin.server.Page.BrowserWindowResizeListener;
 import com.vaadin.server.VaadinService;
+import com.vaadin.server.VaadinSession;
+import com.vaadin.server.WebBrowser;
 import com.vaadin.server.Sizeable.Unit;
+import com.vaadin.shared.ui.datefield.Resolution;
 
 import com.vaadin.ui.*;
-import com.vaadin.ui.Button.ClickEvent;
 import com.vaadin.ui.Button.ClickListener;
-import com.vaadin.ui.Window.ResizeEvent;
 import com.vaadin.ui.themes.Reindeer;
 
 @Theme("reportertheme")
 @SuppressWarnings("serial")
 public class ReporterUI extends UI {
 	
-	
-	private ComboBox doclist = new ComboBox("Documents");
 	
 	Window logWindow;
 	
@@ -54,33 +50,67 @@ public class ReporterUI extends UI {
 	private Button bookButton = new Button();
 	private PopupDateField datefield = new PopupDateField();
 	private Label stateLabel = new Label("Отчёт не загружен");
-	private Panel panel = new Panel();
 	private Table table;
-	private Panel docView = new Panel();
 	private final BrowserFrame frame = new BrowserFrame();
 	private String stringDate;
+	private ComboBox localeSelection;
+	private HorizontalSplitPanel doclistSplit = new HorizontalSplitPanel();
+	
+	private static final Resolution[] resolutions = {Resolution.YEAR, Resolution.MONTH,
+        Resolution.DAY};
+	private static final String[] resolutionNames = { "Год", "Месяц", "День"};
 	
 	final VerticalLayout vlay = new VerticalLayout();
 	final HorizontalLayout hlay = new HorizontalLayout();
 	
 	VerticalSplitPanel split = new VerticalSplitPanel();
 	
+	private static final Object resolution_PROPERTY_NAME = "name";
+	private IndexedContainer getResolutionContainer() {
+        IndexedContainer resolutionContainer = new IndexedContainer();
+        resolutionContainer.addContainerProperty(resolution_PROPERTY_NAME,
+                String.class, null);
+        for (int i = 0; i < resolutions.length; i++) {
+            Item added = resolutionContainer.addItem(resolutions[i]);
+            added.getItemProperty(resolution_PROPERTY_NAME).setValue(
+                    resolutionNames[i]);
+        }
+        return resolutionContainer;
+    }
+	
 	
 	@Override
 	protected void init(VaadinRequest request) {
 		 
-		UI.getCurrent().setStyleName(Reindeer.SPLITPANEL_SMALL); 
+		//UI.getCurrent().setStyleName(Reindeer.SPLITPANEL_SMALL); 
 		
 		final String basepath = VaadinService.getCurrent()
 				.getBaseDirectory().getAbsolutePath();
 		
+		
+		
+		//настройка календаря
+		datefield.setValue(new java.util.Date());
+		datefield.setResolution(Resolution.DAY); 
+        //datefield.setDateFormat("dd.MM.yyyy"); 
+        datefield.setImmediate(true);
+        
+        localeSelection = new ComboBox();
+        localeSelection.setNullSelectionAllowed(false);
+        localeSelection.setImmediate(true);
+        localeSelection.setContainerDataSource(getResolutionContainer());
+        localeSelection.setItemCaptionPropertyId(resolution_PROPERTY_NAME);
+        localeSelection.setItemCaptionMode(ItemCaptionMode.PROPERTY);
+        localeSelection.setValue(Resolution.DAY);
+		
+		
 		//задаём стили
 		
-		//split.setStyleName(Reindeer.SPLITPANEL_SMALL);
 		split.setStyleName("splitpanel");
 		
-	
-		this.getPage().setTitle("SCADAReporter");
+		//final Page page = Page.getCurrent();
+		final Page page = this.getPage();
+		this.getPage().setTitle("SCADAReports");
 		 
 		//vlay.addComponent(docView); 
 		
@@ -108,64 +138,108 @@ public class ReporterUI extends UI {
 		
 		//добавляем подсказки
 		buttonList.setDescription("Список отчётов");
-		buttonRefresh.setDescription("Загрузить отчёт");
+		buttonRefresh.setDescription("Загрузить отчёт"); 
 		bookButton.setDescription("Протокол работы");
 		buttonCache.setDescription("Кэширование");
 		datefield.setDescription("Календарь");
 		
 		
+		
+		
 		//добавляем кнопки в панель
+		
 		hlay.setSpacing(true);
-		hlay.addComponent(buttonList);
+		//hlay.addComponent(buttonList);
 		hlay.addComponent(datefield);
-		hlay.addComponent(buttonRefresh);
+		hlay.addComponent(localeSelection);
+		hlay.addComponent(buttonRefresh);  
 		hlay.addComponent(buttonCache);
 		hlay.addComponent(bookButton);
 		hlay.addComponent(stateLabel);
 		
 		
+		WebBrowser browser = VaadinSession.getCurrent().getBrowser();
 		split.addComponent(vlay);
 		split.addComponent(hlay);
-		split.setMaxSplitPosition(94.9f, Unit.PERCENTAGE);
-		split.setMinSplitPosition(94.9f, Unit.PERCENTAGE);  
-		split.setLocked(true);  
-		 
+		//split.setMaxSplitPosition(94.9f, Unit.PERCENTAGE);
+		//split.setMinSplitPosition(94.9f, Unit.PERCENTAGE);
+		split.setMaxSplitPosition(Page.getCurrent().getBrowserWindowHeight()-33, Unit.PIXELS);
+		split.setMinSplitPosition(Page.getCurrent().getBrowserWindowHeight()-33, Unit.PIXELS);    
+		split.setLocked(true);   
+		
+		//UI myUI = UI.getCurrent();  
+		
+		this.getPage().addBrowserWindowResizeListener(new BrowserWindowResizeListener() {
+		        public void browserWindowResized(BrowserWindowResizeEvent event) {
+		            Notification.show("Window width="+event.getWidth()+", height="+event.getHeight());
+		            stateLabel.setValue("Change! height="+event.getHeight());
+		            split.setMinSplitPosition(page.getBrowserWindowHeight()-33, Unit.PIXELS);    
+		            split.setLocked(true); 
+		            //hlay.setWidth(100, Unit.PERCENTAGE);
+		        }
+		});   
+		
+		//настройка таблицы 
+		FilesystemContainer docs = new FilesystemContainer(new File(basepath+"/WEB-INF/docs"));
+		table = new Table(null,docs);
+				
+		table.setSelectable(true);
+		table.setVisibleColumns(new Object[]{"Name", 
+        "Last Modified"});
+		table.setColumnHeader("Name", "Имя отчёта");
+		table.setColumnHeader("Last Modified", "Дата изменения");
+		table.setHeight(100f, Unit.PERCENTAGE); 
+		table.setWidth(100f, Unit.PERCENTAGE); 			
+		
+		//добавляем в верхний layout
+		
+		System.out.println(Page.getCurrent().getBrowserWindowHeight());  
+		//vlay.setHeight(99.836f, Unit.PERCENTAGE); 
+		vlay.setHeight(100f, Unit.PERCENTAGE); 
+		frame.setHeight("99.6%");
+		frame.setWidth("99.6%"); 
+		doclistSplit.addComponent(table); 
+		doclistSplit.addComponent(frame);
+		//stateLabel.setValue(String.valueOf(table.getWidth()));
+		//doclistSplit.setMinSplitPosition(table.getWidth(), Unit.PERCENTAGE);
+		doclistSplit.setMaxSplitPosition(30, Unit.PERCENTAGE); 
+		doclistSplit.setSplitPosition(30, Unit.PERCENTAGE);
+		vlay.addComponent(doclistSplit);   
+		
 		
 		// Создаём подокно для протокола
 		final Window subWindow = new Window("Протокол работы");
 		Layout content = new VerticalLayout();
 		subWindow.setContent(content);        
-		subWindow.center();
+		subWindow.center(); 
 		subWindow.setId("close");
 		subWindow.setResizable(false);
 		
 		//Создаём подокно для списка отчётов
-		final Window listWindow = new Window("Список отчётов");
+		/*final Window listWindow = new Window("Список отчётов");
 		Layout contentList = new VerticalLayout();
 		listWindow.setContent(contentList);        
 		listWindow.setPositionX(0);
 		listWindow.setPositionY(0);
 		listWindow.setId("close");
 		listWindow.setHeight(95, Unit.PERCENTAGE); 
-		listWindow.setWidth(20, Unit.PERCENTAGE);
+		listWindow.setWidth(20, Unit.PERCENTAGE);*/
 		 
-		FilesystemContainer docs = new FilesystemContainer(new File(basepath+"/WEB-INF/docs"));
 		
-		//настройка таблицы 
-		table = new Table(null,docs);
 		
-		table.setSelectable(true);
-		table.setVisibleColumns(new Object[]{"Name", 
-        "Last Modified"});
-		table.setColumnHeader("Name", "Имя отчёта");
-		table.setColumnHeader("Last Modified", "Дата изменения");
 		
-		listWindow.setHeight(94.5f, Unit.PERCENTAGE); 
+		
+		
+		/*listWindow.setHeight(94.5f, Unit.PERCENTAGE); 
 		listWindow.setWidth(21, Unit.PERCENTAGE);
 		
 		//table.setWidth(94.5f,Unit.PERCENTAGE);
-		table.setHeight(500,Unit.PIXELS);  
-		contentList.addComponent(table);  
+		//table.setHeight(500,Unit.PIXELS);  
+		contentList.addComponent(table);*/
+		
+		//doclistSplit.addComponent(table);
+		
+		//doclistSplit.setHeight(100, Unit.PERCENTAGE); 
 		
 		
 		//Tabsheet для протокола работы
@@ -189,12 +263,15 @@ public class ReporterUI extends UI {
 		
 		this.setContent(split);
 		
-		//Вывод PDF
-
-		frame.setSizeFull();
-		//frame.setSource(pdfFile);
-		
 		//Слушатели
+		
+		//комбобокс календаря
+		localeSelection.addValueChangeListener(new Property.ValueChangeListener() {
+			@Override
+			public void valueChange(ValueChangeEvent event) {
+				datefield.setResolution((Resolution) event.getProperty().getValue());
+			}
+		});
 		
 		//таблица
 		table.addValueChangeListener(new Property.ValueChangeListener() {
@@ -212,13 +289,12 @@ public class ReporterUI extends UI {
 					
 					stateLabel.setValue("Отчёт "+stringDate); 
 					frame.setSource(res);
-					//vlay.addComponent(frame);
-					vlay.removeAllComponents();
+					/*vlay.removeAllComponents();
 					vlay.addComponent(frame);
-					vlay.setHeight(99.836f, Unit.PERCENTAGE);
+					vlay.setHeight(99.836f, Unit.PERCENTAGE);*/
 				}
 			}
-		});
+		}); 
 		table.setImmediate(true);
 		
 		//Кнопка загрузки отчёта
@@ -226,7 +302,7 @@ public class ReporterUI extends UI {
 			
 			@Override
 			public void buttonClick(ClickEvent event) { 
-				
+				 
 				boolean flag = false;
 				if (datefield.getValue()!=null){
 					Date date = datefield.getValue();
@@ -244,16 +320,16 @@ public class ReporterUI extends UI {
 		            		stateLabel.setValue("Отчёт " + stringDate);
 		            		FileResource res = new FileResource(currentFile);
 		            		frame.setSource(res);
-							vlay.removeAllComponents();
+							/*vlay.removeAllComponents();
 							vlay.addComponent(frame);
-							vlay.setHeight(99.836f, Unit.PERCENTAGE);
+							vlay.setHeight(99.836f, Unit.PERCENTAGE);*/
 							flag = true;
 		            	}
 		            }
 		            if (flag == false){
 		            	vlay.removeAllComponents(); 
 		            	stateLabel.setValue("Отчёт по этой дате не найден");
-		            	Notification.show("Отчёт по этой дате не найден"); 
+		            	Notification.show("Отчёт по этой дате не найден");  
 		            }
 				} 
 				else
@@ -295,7 +371,7 @@ public class ReporterUI extends UI {
 		});
 		
 		//кнопка список отчётов
-		buttonList.addClickListener(new ClickListener() {
+		/*buttonList.addClickListener(new ClickListener() {
 			
 			@Override
 			public void buttonClick(ClickEvent event) {
@@ -309,7 +385,7 @@ public class ReporterUI extends UI {
 					listWindow.setId("open");
 				}
 			}
-		});
+		});*/
 		
 		
 	}
