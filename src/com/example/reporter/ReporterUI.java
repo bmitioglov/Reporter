@@ -2,7 +2,11 @@ package com.example.reporter;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
+
+import org.apache.james.mime4j.field.datetime.DateTime;
 
 import com.github.wolfie.refresher.Refresher;
 import com.github.wolfie.refresher.Refresher.RefreshListener;
@@ -38,11 +42,17 @@ import com.vaadin.shared.ui.datefield.Resolution;
 
 import com.vaadin.ui.*;
 import com.vaadin.ui.Button.ClickListener;
+import com.vaadin.ui.TabSheet.SelectedTabChangeEvent;
 import com.vaadin.ui.themes.Reindeer;
+
+
+
+
 
 @Theme("reportertheme")
 @SuppressWarnings("serial")
 public class ReporterUI extends UI {
+	
 	
 	
 	Window logWindow;
@@ -51,26 +61,28 @@ public class ReporterUI extends UI {
 	private Button buttonList = new Button();
 	private Button buttonRefresh = new Button();  
 	private Button buttonCache = new Button();
-	private Button bookButton = new Button();
+	//private Button bookButton = new Button();   
+	
 	private PopupDateField datefield = new PopupDateField();
-	private Label stateLabel = new Label("Отчёт не загружен");
+	//private Label stateLabel = new Label("Отчёт не загружен");
 	private Table table;
-	private final BrowserFrame frame = new BrowserFrame();
+	private final BrowserFrame frame = new BrowserFrame(); 
 	private String stringDate;
 	private ComboBox localeSelection;
 	private HorizontalSplitPanel doclistSplit = new HorizontalSplitPanel();
 	private HorizontalSplitPanel historySplit = new HorizontalSplitPanel();
+	private TextArea historyArea = new TextArea();
+	private Accordion accord;
+	private float splitPos;
+	private boolean listButtonFlag = false;
 	
-	private static final Resolution[] resolutions = {Resolution.YEAR, Resolution.MONTH,
-        Resolution.DAY};
+	private static final Resolution[] resolutions = {Resolution.YEAR, Resolution.MONTH, Resolution.DAY};
 	private static final String[] resolutionNames = { "Год", "Месяц", "День"};
-	
 	final VerticalLayout vlay = new VerticalLayout();
 	final HorizontalLayout hlay = new HorizontalLayout();
-	
-	VerticalSplitPanel split = new VerticalSplitPanel();
-	
+	private VerticalSplitPanel split = new VerticalSplitPanel();
 	private static final Object resolution_PROPERTY_NAME = "name";
+	
 	private IndexedContainer getResolutionContainer() {
         IndexedContainer resolutionContainer = new IndexedContainer();
         resolutionContainer.addContainerProperty(resolution_PROPERTY_NAME,
@@ -111,15 +123,12 @@ public class ReporterUI extends UI {
 		//задаём стили
 		
 		split.setStyleName("splitpanel");
-		
 		//final Page page = Page.getCurrent();
 		final Page page = this.getPage();
 		this.getPage().setTitle("SCADAReports");
 		 
-		//vlay.addComponent(docView); 
 		
 		//ресурсы
-		
 		FileResource settingRes = new FileResource(new File(basepath +
 				"/WEB-INF/icons/settings.png"));
 		FileResource reloadRes = new FileResource(new File(basepath +
@@ -130,46 +139,49 @@ public class ReporterUI extends UI {
 				"/WEB-INF/icons/tick_16.png"));
 		final FileResource cacheNoRes = new FileResource(new File(basepath +
 				"/WEB-INF/icons/block_16.png"));
+		final FileResource accordLoadedIcon = new FileResource(new File(basepath +
+				"/WEB-INF/icons/loaded.png"));
+		final FileResource accordLoadingIcon = new FileResource(new File(basepath +
+				"/WEB-INF/icons/loading.png"));
 		
 		final FileResource pdfFile = new FileResource(new File(basepath +
 				"/WEB-INF/docs/book.pdf"));
 		
-		
+		//настраиваем иконки
 		buttonList.setIcon(settingRes);
 		buttonRefresh.setIcon(reloadRes);
-		bookButton.setIcon(bookRes);
+		//bookButton.setIcon(bookRes);
 		buttonCache.setIcon(cacheNoRes);
 		
 		//добавляем подсказки
 		buttonList.setDescription("Список отчётов");
 		buttonRefresh.setDescription("Загрузить отчёт"); 
-		bookButton.setDescription("Протокол работы");
+		//bookButton.setDescription("Протокол работы");
 		buttonCache.setDescription("Кэширование");
 		datefield.setDescription("Календарь");
 		
-		
-		
-		
 		//добавляем кнопки в панель
-		
 		hlay.setSpacing(true);
 		hlay.addComponent(buttonList);
 		hlay.addComponent(datefield);
 		hlay.addComponent(localeSelection);
 		hlay.addComponent(buttonRefresh);  
 		hlay.addComponent(buttonCache);
-		hlay.addComponent(bookButton);
-		hlay.addComponent(stateLabel);
+		//hlay.addComponent(bookButton);
+		//hlay.addComponent(stateLabel);
 		
-		
+		//установка позиции сплиттера нижней панели
 		WebBrowser browser = VaadinSession.getCurrent().getBrowser();
 		split.addComponent(vlay);
 		split.addComponent(hlay);
-		//split.setMaxSplitPosition(94.9f, Unit.PERCENTAGE);
-		//split.setMinSplitPosition(94.9f, Unit.PERCENTAGE);
 		split.setMaxSplitPosition(Page.getCurrent().getBrowserWindowHeight()-33, Unit.PIXELS);
 		split.setMinSplitPosition(Page.getCurrent().getBrowserWindowHeight()-33, Unit.PIXELS);    
 		split.setLocked(true);   
+		
+		//настройка протокола работы
+		historyArea.setCaption("Протокол работы");
+		historyArea.setInputPrompt("пусто");
+		
 		
 		
 		//Подстраивание под окно браузера
@@ -181,16 +193,20 @@ public class ReporterUI extends UI {
             public void refresh(final Refresher source) {
             	page.addBrowserWindowResizeListener(new BrowserWindowResizeListener() {
     		        public void browserWindowResized(BrowserWindowResizeEvent event) {
-    		            stateLabel.setValue("Change! height="+event.getHeight());
+    		            //stateLabel.setValue("Change! height="+event.getHeight());
+    		            //Label label = new Label();
+    		            //historyArea.setValue(historyArea.getValue()+"\n\r"+stateLabel.getValue());
     		            split.setMinSplitPosition(page.getBrowserWindowHeight()-33, Unit.PIXELS);    
     		            split.setLocked(true); 
+    		            frame.setHeight("99.5%");
+    		    		frame.setWidth("99.5%"); 
     		        }
             	});     
             }
         }
 		Refresher refr = new Refresher();
 		refr.addListener(new MyBrowserResizeListener());
-		//addExtension(refr);
+		addExtension(refr);
 		
 		
 		//настройка таблицы 
@@ -206,28 +222,42 @@ public class ReporterUI extends UI {
 		table.setWidth(100f, Unit.PERCENTAGE); 			
 		
 		//добавляем в верхний layout
+		accord = new Accordion();
+		accord.addTab(table,"Отчёты",accordLoadedIcon);
+		accord.addTab(new Label("Изменяемые отчёты"),"Изменяемые отчёты",accordLoadingIcon);
+		accord.setHeight("99.7%");
+		accord.setWidth("99.7%"); 
+		accord.addSelectedTabChangeListener(new Accordion.SelectedTabChangeListener() {
+			@Override
+			public void selectedTabChange(SelectedTabChangeEvent event) {
+				TabSheet tabsheet = event.getTabSheet();
+				 
+			}
+		});
 		
 		System.out.println(Page.getCurrent().getBrowserWindowHeight());  
-		//vlay.setHeight(99.836f, Unit.PERCENTAGE); 
 		vlay.setHeight(100f, Unit.PERCENTAGE); 
 		frame.setHeight("99.6%");
 		frame.setWidth("99.6%"); 
-		doclistSplit.addComponent(table); 
+		//doclistSplit.addComponent(table);
+		doclistSplit.addComponent(accord);
 		doclistSplit.addComponent(frame);
-		//stateLabel.setValue(String.valueOf(table.getWidth()));
-		//doclistSplit.setMinSplitPosition(table.getWidth(), Unit.PERCENTAGE);
-		doclistSplit.setMaxSplitPosition(30, Unit.PERCENTAGE); 
+		//historySplit.addComponent(historyArea); 
+		//historySplit.addComponent(frame);
+		//historySplit.setMaxSplitPosition(30, Unit.PERCENTAGE); 
+		//historySplit.setSplitPosition(0, Unit.PERCENTAGE);
+		doclistSplit.setMaxSplitPosition(30, Unit.PERCENTAGE);  
 		doclistSplit.setSplitPosition(30, Unit.PERCENTAGE);
 		vlay.addComponent(doclistSplit);   
 		
 		
-		// Создаём подокно для протокола
+		/*// Создаём подокно для протокола
 		final Window subWindow = new Window("Протокол работы");
 		Layout content = new VerticalLayout();
 		subWindow.setContent(content);        
 		subWindow.center(); 
 		subWindow.setId("close");
-		subWindow.setResizable(false);
+		subWindow.setResizable(false);*/
 		
 		//Создаём подокно для списка отчётов
 		/*final Window listWindow = new Window("Список отчётов");
@@ -273,7 +303,7 @@ public class ReporterUI extends UI {
         tab.setHeight("500px");
 		tab.setWidth("700px"); 
 
-        content.addComponent(tab);
+        //content.addComponent(tab);
 		
 		this.setContent(split);
 		
@@ -301,7 +331,7 @@ public class ReporterUI extends UI {
 					stringDate = new SimpleDateFormat("dd MMM yyyy").format(lastModified);
 
 					
-					stateLabel.setValue("Отчёт "+stringDate); 
+					//stateLabel.setValue("Отчёт "+stringDate); 
 					frame.setSource(res);
 					/*vlay.removeAllComponents();
 					vlay.addComponent(frame);
@@ -331,7 +361,7 @@ public class ReporterUI extends UI {
 		            	String stringDate2 = new SimpleDateFormat("dd MMM yyyy").format(lastModified);
 		            	
 		            	if (stringDate.equals(stringDate2)){
-		            		stateLabel.setValue("Отчёт " + stringDate);
+		            		//stateLabel.setValue("Отчёт " + stringDate);
 		            		FileResource res = new FileResource(currentFile);
 		            		frame.setSource(res);
 							/*vlay.removeAllComponents();
@@ -342,13 +372,13 @@ public class ReporterUI extends UI {
 		            }
 		            if (flag == false){
 		            	frame.setSource(null);
-		            	stateLabel.setValue("Отчёт по этой дате не найден");
+		            	//stateLabel.setValue("Отчёт по этой дате не найден");
 		            	Notification.show("Отчёт по этой дате не найден");  
 		            }
 				} 
 				else
 				{
-					stateLabel.setValue("Выберите дату!");
+					//stateLabel.setValue("Выберите дату!");
 					Notification.show("Выберите дату!");
 				}
 			}
@@ -368,8 +398,8 @@ public class ReporterUI extends UI {
 			}
 		});
 		
-		//кнопка протокол работы
-		bookButton.addClickListener(new Button.ClickListener(){
+		
+		/*bookButton.addClickListener(new Button.ClickListener(){
 			public void buttonClick(ClickEvent event){
 				
 				if (subWindow.getId().equals("open")){
@@ -382,22 +412,96 @@ public class ReporterUI extends UI {
 					subWindow.setId("open");
 				}
 			}
-		});
+		});*/
+		
+		//кнопка протокол работы
+		/*bookButton.addClickListener(new Button.ClickListener(){
+			public void buttonClick(ClickEvent event){
+				if (historySplit.getSplitPosition()>15){   
+					historySplit.setSplitPosition(0, Unit.PERCENTAGE);					
+				} else
+				{
+					historySplit.setSplitPosition(30, Unit.PERCENTAGE);
+				}
+			}
+		});*/
 		
 		//кнопка список отчётов
+		
+		
 		buttonList.addClickListener(new ClickListener() {
 			
 			@Override
 			public void buttonClick(ClickEvent event) {
-				if (doclistSplit.getSplitPosition()>15){   
-					doclistSplit.setSplitPosition(0, Unit.PERCENTAGE);					
-				} else
-				{
-					doclistSplit.setSplitPosition(30, Unit.PERCENTAGE);
+				if (listButtonFlag == false){
+					splitPos = doclistSplit.getSplitPosition();
+					doclistSplit.setSplitPosition(0, Unit.PERCENTAGE); 
+					listButtonFlag = true;
 				}
+				else
+				{
+					if (doclistSplit.getSplitPosition() > 0){
+						splitPos = doclistSplit.getSplitPosition();
+						doclistSplit.setSplitPosition(0, Unit.PERCENTAGE);					
+					} else
+					{	
+						
+						doclistSplit.setSplitPosition(splitPos);
+					}
+				}
+				
 			}
 		});
 		
 		
+		
 	}
+	
+	
+	
+	List<CReport> getReportList()
+	{
+		ArrayList<CReport> res=new ArrayList<CReport>();
+		CReport r=new CReport();
+		r.m_calendarType=CReport.CalendarType.Day;
+		r.m_reportID=1;
+		r.m_reportName="Отчет 1";
+		res.add(r);
+ 
+		r=new CReport();
+		r.m_calendarType=CReport.CalendarType.Month;
+		r.m_reportID=2;
+		r.m_reportName="Отчет 2";
+		res.add(r);
+		
+		
+		r=new CReport();
+		r.m_calendarType=CReport.CalendarType.Year;
+		r.m_reportID=3;
+		r.m_reportName="Отчет 3";
+		res.add(r);
+	
+		return res;
+	}
+	
+	
+	String getReportPath(long reportID, DateTime date)
+	{
+		if  (reportID==1) 
+			return "1.pdf";
+		if  (reportID==2) 
+			return "2.pdf";
+		if  (reportID==3) 
+			return "3.pdf";
+		return "";
+	}
+	
+	
+	void cacheUpdateRequest(long reportID, DateTime date)
+	{
+	}
+	
+	
+	
+	
 }
