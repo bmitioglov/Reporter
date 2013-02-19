@@ -16,6 +16,12 @@
 			<param-name>UI</param-name>
 			<param-value>com.example.reporter.ReporterUI</param-value>
 		</init-param>
+		<init-param>
+			<description>
+			Application widgetset</description>
+			<param-name>widgetset</param-name>
+			<param-value>com.example.reporter.widgetset.ReporterWidgetset</param-value>
+		</init-param>
 	</servlet>
 	<servlet-mapping>
 		<servlet-name>Reporter</servlet-name>

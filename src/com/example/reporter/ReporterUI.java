@@ -4,6 +4,8 @@ import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
+import com.github.wolfie.refresher.Refresher;
+import com.github.wolfie.refresher.Refresher.RefreshListener;
 import com.vaadin.annotations.Theme;
 
 import com.vaadin.client.BrowserInfo;
@@ -20,6 +22,8 @@ import com.vaadin.ui.Label;
 import com.vaadin.ui.UI; 
 import com.vaadin.ui.VerticalLayout;
 import com.vaadin.ui.Window;
+
+
 
 
 import com.vaadin.server.FileResource;
@@ -55,6 +59,7 @@ public class ReporterUI extends UI {
 	private String stringDate;
 	private ComboBox localeSelection;
 	private HorizontalSplitPanel doclistSplit = new HorizontalSplitPanel();
+	private HorizontalSplitPanel historySplit = new HorizontalSplitPanel();
 	
 	private static final Resolution[] resolutions = {Resolution.YEAR, Resolution.MONTH,
         Resolution.DAY};
@@ -92,7 +97,6 @@ public class ReporterUI extends UI {
 		//настройка календаря
 		datefield.setValue(new java.util.Date());
 		datefield.setResolution(Resolution.DAY); 
-        //datefield.setDateFormat("dd.MM.yyyy"); 
         datefield.setImmediate(true);
         
         localeSelection = new ComboBox();
@@ -149,7 +153,7 @@ public class ReporterUI extends UI {
 		//добавляем кнопки в панель
 		
 		hlay.setSpacing(true);
-		//hlay.addComponent(buttonList);
+		hlay.addComponent(buttonList);
 		hlay.addComponent(datefield);
 		hlay.addComponent(localeSelection);
 		hlay.addComponent(buttonRefresh);  
@@ -167,17 +171,27 @@ public class ReporterUI extends UI {
 		split.setMinSplitPosition(Page.getCurrent().getBrowserWindowHeight()-33, Unit.PIXELS);    
 		split.setLocked(true);   
 		
-		//UI myUI = UI.getCurrent();  
 		
-		this.getPage().addBrowserWindowResizeListener(new BrowserWindowResizeListener() {
-		        public void browserWindowResized(BrowserWindowResizeEvent event) {
-		            Notification.show("Window width="+event.getWidth()+", height="+event.getHeight());
-		            stateLabel.setValue("Change! height="+event.getHeight());
-		            split.setMinSplitPosition(page.getBrowserWindowHeight()-33, Unit.PIXELS);    
-		            split.setLocked(true); 
-		            //hlay.setWidth(100, Unit.PERCENTAGE);
-		        }
-		});   
+		//Подстраивание под окно браузера
+		
+		class MyBrowserResizeListener implements RefreshListener {
+            private static final long serialVersionUID = -8765221895426102605L;
+            
+            @Override
+            public void refresh(final Refresher source) {
+            	page.addBrowserWindowResizeListener(new BrowserWindowResizeListener() {
+    		        public void browserWindowResized(BrowserWindowResizeEvent event) {
+    		            stateLabel.setValue("Change! height="+event.getHeight());
+    		            split.setMinSplitPosition(page.getBrowserWindowHeight()-33, Unit.PIXELS);    
+    		            split.setLocked(true); 
+    		        }
+            	});     
+            }
+        }
+		Refresher refr = new Refresher();
+		refr.addListener(new MyBrowserResizeListener());
+		//addExtension(refr);
+		
 		
 		//настройка таблицы 
 		FilesystemContainer docs = new FilesystemContainer(new File(basepath+"/WEB-INF/docs"));
@@ -327,7 +341,7 @@ public class ReporterUI extends UI {
 		            	}
 		            }
 		            if (flag == false){
-		            	vlay.removeAllComponents(); 
+		            	frame.setSource(null);
 		            	stateLabel.setValue("Отчёт по этой дате не найден");
 		            	Notification.show("Отчёт по этой дате не найден");  
 		            }
@@ -371,21 +385,18 @@ public class ReporterUI extends UI {
 		});
 		
 		//кнопка список отчётов
-		/*buttonList.addClickListener(new ClickListener() {
+		buttonList.addClickListener(new ClickListener() {
 			
 			@Override
 			public void buttonClick(ClickEvent event) {
-				if (listWindow.getId().equals("open")){
-					listWindow.close();
-					listWindow.setId("close");
+				if (doclistSplit.getSplitPosition()>15){   
+					doclistSplit.setSplitPosition(0, Unit.PERCENTAGE);					
 				} else
 				{
-			
-					UI.getCurrent().addWindow(listWindow);
-					listWindow.setId("open");
+					doclistSplit.setSplitPosition(30, Unit.PERCENTAGE);
 				}
 			}
-		});*/
+		});
 		
 		
 	}
