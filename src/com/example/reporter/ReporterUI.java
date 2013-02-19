@@ -207,7 +207,6 @@ public class ReporterUI extends UI {
 		
 		int i = 0;
 		while (i<listReport.size()){
-			//table.addItem(new Object[]{listReport.get(i).m_reportName}, listReport.get(i).m_calendarType); 
 			
 			Object newItemId = table.addItem();
 			Item row1 = table.getItem(newItemId);  
@@ -218,12 +217,6 @@ public class ReporterUI extends UI {
 		}
 		
 		table.setSelectable(true); 
-
-		/*table.setVisibleColumns(new Object[]{"Name", 
-        "Last Modified"});
-		table.setColumnHeader("Name", "Имя отчёта");
-		table.setColumnHeader("Last Modified", "Дата изменения");*/
-		
 		table.setHeight(100f, Unit.PERCENTAGE); 
 		table.setWidth(100f, Unit.PERCENTAGE); 			
 		
@@ -240,8 +233,7 @@ public class ReporterUI extends UI {
 				 
 			}
 		});
-		
-		System.out.println(Page.getCurrent().getBrowserWindowHeight());  
+		 
 		vlay.setHeight(100f, Unit.PERCENTAGE); 
 		frame.setHeight("99.6%");
 		frame.setWidth("99.6%"); 
@@ -270,11 +262,16 @@ public class ReporterUI extends UI {
 			public void valueChange(ValueChangeEvent event) {
 				if (event.getProperty().getValue()!=null)
 				{
-					File file = (File) event.getProperty().getValue();
+					/*File file = (File) event.getProperty().getValue();
 					FileResource res = new FileResource(file);
 					Date lastModified = new Date(file.lastModified());
 					stringDate = new SimpleDateFormat("dd MMM yyyy").format(lastModified);
-					frame.setSource(res);
+					frame.setSource(res);*/
+					
+					CReport.CalendarType calendType;
+					System.out.println(event.getProperty().getValue());
+					Item row = table.getItem(event.getProperty().getValue());
+					System.out.println(row.getItemProperty("Имя отчёта").getValue());  
 				}
 			}
 		}); 
