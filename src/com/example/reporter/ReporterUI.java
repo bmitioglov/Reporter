@@ -61,10 +61,8 @@ public class ReporterUI extends UI {
 	private Button buttonList = new Button();
 	private Button buttonRefresh = new Button();  
 	private Button buttonCache = new Button();
-	//private Button bookButton = new Button();   
 	
 	private PopupDateField datefield = new PopupDateField();
-	//private Label stateLabel = new Label("Отчёт не загружен");
 	private Table table;
 	private final BrowserFrame frame = new BrowserFrame(); 
 	private String stringDate;
@@ -75,6 +73,8 @@ public class ReporterUI extends UI {
 	private Accordion accord;
 	private float splitPos;
 	private boolean listButtonFlag = false;
+	private String basepath = VaadinService.getCurrent()
+			.getBaseDirectory().getAbsolutePath();
 	
 	private static final Resolution[] resolutions = {Resolution.YEAR, Resolution.MONTH, Resolution.DAY};
 	private static final String[] resolutionNames = { "Год", "Месяц", "День"};
@@ -98,15 +98,8 @@ public class ReporterUI extends UI {
 	
 	@Override
 	protected void init(VaadinRequest request) {
-		 
-		//UI.getCurrent().setStyleName(Reindeer.SPLITPANEL_SMALL); 
 		
-		final String basepath = VaadinService.getCurrent()
-				.getBaseDirectory().getAbsolutePath();
-		
-		
-		
-		//настройка календаря
+		//---------------настройка календаря
 		datefield.setValue(new java.util.Date());
 		datefield.setResolution(Resolution.DAY); 
         datefield.setImmediate(true);
@@ -120,15 +113,14 @@ public class ReporterUI extends UI {
         localeSelection.setValue(Resolution.DAY);
 		
 		
-		//задаём стили
+		//----------------задаём стили
 		
 		split.setStyleName("splitpanel");
-		//final Page page = Page.getCurrent();
 		final Page page = this.getPage();
 		this.getPage().setTitle("SCADAReports");
 		 
 		
-		//ресурсы
+		//------------------ресурсы
 		FileResource settingRes = new FileResource(new File(basepath +
 				"/WEB-INF/icons/settings.png"));
 		FileResource reloadRes = new FileResource(new File(basepath +
@@ -147,30 +139,28 @@ public class ReporterUI extends UI {
 		final FileResource pdfFile = new FileResource(new File(basepath +
 				"/WEB-INF/docs/book.pdf"));
 		
-		//настраиваем иконки
+		//-------------настраиваем иконки
 		buttonList.setIcon(settingRes);
 		buttonRefresh.setIcon(reloadRes);
 		//bookButton.setIcon(bookRes);
 		buttonCache.setIcon(cacheNoRes);
 		
-		//добавляем подсказки
+		//-------------добавляем подсказки
 		buttonList.setDescription("Список отчётов");
 		buttonRefresh.setDescription("Загрузить отчёт"); 
 		//bookButton.setDescription("Протокол работы");
 		buttonCache.setDescription("Кэширование");
 		datefield.setDescription("Календарь");
 		
-		//добавляем кнопки в панель
+		//-------------добавляем кнопки в панель
 		hlay.setSpacing(true);
 		hlay.addComponent(buttonList);
 		hlay.addComponent(datefield);
 		hlay.addComponent(localeSelection);
 		hlay.addComponent(buttonRefresh);  
 		hlay.addComponent(buttonCache);
-		//hlay.addComponent(bookButton);
-		//hlay.addComponent(stateLabel);
-		
-		//установка позиции сплиттера нижней панели
+
+		//-------------------установка позиции сплиттера нижней панели
 		WebBrowser browser = VaadinSession.getCurrent().getBrowser();
 		split.addComponent(vlay);
 		split.addComponent(hlay);
@@ -178,13 +168,10 @@ public class ReporterUI extends UI {
 		split.setMinSplitPosition(Page.getCurrent().getBrowserWindowHeight()-33, Unit.PIXELS);    
 		split.setLocked(true);   
 		
-		//настройка протокола работы
-		historyArea.setCaption("Протокол работы");
-		historyArea.setInputPrompt("пусто");
 		
 		
 		
-		//Подстраивание под окно браузера
+		//--------------Подстраивание под окно браузера
 		
 		class MyBrowserResizeListener implements RefreshListener {
             private static final long serialVersionUID = -8765221895426102605L;
@@ -193,9 +180,6 @@ public class ReporterUI extends UI {
             public void refresh(final Refresher source) {
             	page.addBrowserWindowResizeListener(new BrowserWindowResizeListener() {
     		        public void browserWindowResized(BrowserWindowResizeEvent event) {
-    		            //stateLabel.setValue("Change! height="+event.getHeight());
-    		            //Label label = new Label();
-    		            //historyArea.setValue(historyArea.getValue()+"\n\r"+stateLabel.getValue());
     		            split.setMinSplitPosition(page.getBrowserWindowHeight()-33, Unit.PIXELS);    
     		            split.setLocked(true); 
     		            frame.setHeight("99.5%");
@@ -209,19 +193,41 @@ public class ReporterUI extends UI {
 		addExtension(refr);
 		
 		
-		//настройка таблицы 
-		FilesystemContainer docs = new FilesystemContainer(new File(basepath+"/WEB-INF/docs"));
-		table = new Table(null,docs);
-				
-		table.setSelectable(true);
-		table.setVisibleColumns(new Object[]{"Name", 
+		//---------------настройка таблицы 
+		
+		//FilesystemContainer docs = new FilesystemContainer(new File(basepath+"/WEB-INF/docs"));
+		List<CReport> listReport = this.getReportList();
+		
+		//table = new Table(null,docs);
+		table = new Table();
+		table.addContainerProperty("Имя отчёта", String.class, null);
+		table.addContainerProperty("Тип отчёта", CReport.CalendarType.class, null);
+		
+			
+		
+		int i = 0;
+		while (i<listReport.size()){
+			//table.addItem(new Object[]{listReport.get(i).m_reportName}, listReport.get(i).m_calendarType); 
+			
+			Object newItemId = table.addItem();
+			Item row1 = table.getItem(newItemId);  
+		    row1.getItemProperty("Имя отчёта").setValue(listReport.get(i).m_reportName);
+		    row1.getItemProperty("Тип отчёта").setValue(listReport.get(i).m_calendarType); 
+		     
+		    i++;
+		}
+		
+		table.setSelectable(true); 
+
+		/*table.setVisibleColumns(new Object[]{"Name", 
         "Last Modified"});
 		table.setColumnHeader("Name", "Имя отчёта");
-		table.setColumnHeader("Last Modified", "Дата изменения");
+		table.setColumnHeader("Last Modified", "Дата изменения");*/
+		
 		table.setHeight(100f, Unit.PERCENTAGE); 
 		table.setWidth(100f, Unit.PERCENTAGE); 			
 		
-		//добавляем в верхний layout
+		//----------------добавляем в верхний layout
 		accord = new Accordion();
 		accord.addTab(table,"Отчёты",accordLoadedIcon);
 		accord.addTab(new Label("Изменяемые отчёты"),"Изменяемые отчёты",accordLoadingIcon);
@@ -239,75 +245,16 @@ public class ReporterUI extends UI {
 		vlay.setHeight(100f, Unit.PERCENTAGE); 
 		frame.setHeight("99.6%");
 		frame.setWidth("99.6%"); 
-		//doclistSplit.addComponent(table);
 		doclistSplit.addComponent(accord);
 		doclistSplit.addComponent(frame);
-		//historySplit.addComponent(historyArea); 
-		//historySplit.addComponent(frame);
-		//historySplit.setMaxSplitPosition(30, Unit.PERCENTAGE); 
-		//historySplit.setSplitPosition(0, Unit.PERCENTAGE);
 		doclistSplit.setMaxSplitPosition(30, Unit.PERCENTAGE);  
 		doclistSplit.setSplitPosition(30, Unit.PERCENTAGE);
 		vlay.addComponent(doclistSplit);   
 		
 		
-		/*// Создаём подокно для протокола
-		final Window subWindow = new Window("Протокол работы");
-		Layout content = new VerticalLayout();
-		subWindow.setContent(content);        
-		subWindow.center(); 
-		subWindow.setId("close");
-		subWindow.setResizable(false);*/
-		
-		//Создаём подокно для списка отчётов
-		/*final Window listWindow = new Window("Список отчётов");
-		Layout contentList = new VerticalLayout();
-		listWindow.setContent(contentList);        
-		listWindow.setPositionX(0);
-		listWindow.setPositionY(0);
-		listWindow.setId("close");
-		listWindow.setHeight(95, Unit.PERCENTAGE); 
-		listWindow.setWidth(20, Unit.PERCENTAGE);*/
-		 
-		
-		
-		
-		
-		
-		/*listWindow.setHeight(94.5f, Unit.PERCENTAGE); 
-		listWindow.setWidth(21, Unit.PERCENTAGE);
-		
-		//table.setWidth(94.5f,Unit.PERCENTAGE);
-		//table.setHeight(500,Unit.PIXELS);  
-		contentList.addComponent(table);*/
-		
-		//doclistSplit.addComponent(table);
-		
-		//doclistSplit.setHeight(100, Unit.PERCENTAGE); 
-		
-		
-		//Tabsheet для протокола работы
-		VerticalLayout l1 = new VerticalLayout();
-        l1.setMargin(true);
-        l1.addComponent(new Label("There are no previously saved actions."));
-        // Tab 2 content
-        VerticalLayout l2 = new VerticalLayout();
-        l2.setMargin(true);
-        l2.addComponent(new Label("There are no saved notes."));
-
-		
-		final TabSheet tab = new TabSheet();
-
-        tab.addTab(l1, "Текущий");
-        tab.addTab(l2, "С момента загрузки страницы");
-        tab.setHeight("500px");
-		tab.setWidth("700px"); 
-
-        //content.addComponent(tab);
-		
 		this.setContent(split);
 		
-		//Слушатели
+		//-----------Слушатели--------------
 		
 		//комбобокс календаря
 		localeSelection.addValueChangeListener(new Property.ValueChangeListener() {
@@ -324,18 +271,10 @@ public class ReporterUI extends UI {
 				if (event.getProperty().getValue()!=null)
 				{
 					File file = (File) event.getProperty().getValue();
-					
 					FileResource res = new FileResource(file);
 					Date lastModified = new Date(file.lastModified());
-					
 					stringDate = new SimpleDateFormat("dd MMM yyyy").format(lastModified);
-
-					
-					//stateLabel.setValue("Отчёт "+stringDate); 
 					frame.setSource(res);
-					/*vlay.removeAllComponents();
-					vlay.addComponent(frame);
-					vlay.setHeight(99.836f, Unit.PERCENTAGE);*/
 				}
 			}
 		}); 
@@ -361,24 +300,18 @@ public class ReporterUI extends UI {
 		            	String stringDate2 = new SimpleDateFormat("dd MMM yyyy").format(lastModified);
 		            	
 		            	if (stringDate.equals(stringDate2)){
-		            		//stateLabel.setValue("Отчёт " + stringDate);
 		            		FileResource res = new FileResource(currentFile);
 		            		frame.setSource(res);
-							/*vlay.removeAllComponents();
-							vlay.addComponent(frame);
-							vlay.setHeight(99.836f, Unit.PERCENTAGE);*/
 							flag = true;
 		            	}
 		            }
 		            if (flag == false){
 		            	frame.setSource(null);
-		            	//stateLabel.setValue("Отчёт по этой дате не найден");
 		            	Notification.show("Отчёт по этой дате не найден");  
 		            }
 				} 
 				else
 				{
-					//stateLabel.setValue("Выберите дату!");
 					Notification.show("Выберите дату!");
 				}
 			}
@@ -398,33 +331,6 @@ public class ReporterUI extends UI {
 			}
 		});
 		
-		
-		/*bookButton.addClickListener(new Button.ClickListener(){
-			public void buttonClick(ClickEvent event){
-				
-				if (subWindow.getId().equals("open")){
-					subWindow.close();
-					subWindow.setId("close");
-				} else
-				{
-			
-					UI.getCurrent().addWindow(subWindow);
-					subWindow.setId("open");
-				}
-			}
-		});*/
-		
-		//кнопка протокол работы
-		/*bookButton.addClickListener(new Button.ClickListener(){
-			public void buttonClick(ClickEvent event){
-				if (historySplit.getSplitPosition()>15){   
-					historySplit.setSplitPosition(0, Unit.PERCENTAGE);					
-				} else
-				{
-					historySplit.setSplitPosition(30, Unit.PERCENTAGE);
-				}
-			}
-		});*/
 		
 		//кнопка список отчётов
 		
@@ -462,6 +368,7 @@ public class ReporterUI extends UI {
 	List<CReport> getReportList()
 	{
 		ArrayList<CReport> res=new ArrayList<CReport>();
+		
 		CReport r=new CReport();
 		r.m_calendarType=CReport.CalendarType.Day;
 		r.m_reportID=1;
@@ -484,15 +391,18 @@ public class ReporterUI extends UI {
 		return res;
 	}
 	
-	
+
 	String getReportPath(long reportID, DateTime date)
 	{
 		if  (reportID==1) 
-			return "1.pdf";
+			return basepath +
+					"/WEB-INF/docs/1.pdf";
 		if  (reportID==2) 
-			return "2.pdf";
+			return basepath +
+					"/WEB-INF/docs/2.pdf";
 		if  (reportID==3) 
-			return "3.pdf";
+			return basepath +
+					"/WEB-INF/docs/3.pdf";
 		return "";
 	}
 	
